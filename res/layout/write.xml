@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="fill_parent"
+  android:layout_height="fill_parent">
+    <TextView android:id="@+id/viewDate" android:layout_width="fill_parent" android:layout_height="wrap_content" android:text="--- Date ---" ></TextView>
+    <EditText android:textAppearance="?android:attr/textAppearanceMedium" android:layout_width="fill_parent" android:text="" android:layout_height="wrap_content" android:id="@+id/editText" android:layout_below="@+id/viewDate"></EditText>
+    <Button android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_below="@+id/editText" android:layout_alignParentLeft="true" android:id="@+id/btnSave" android:text="@string/save"></Button>
+    <Button android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_below="@+id/editText" android:layout_toRightOf="@+id/btnSave" android:id="@+id/btnCancel" android:text="@string/cancel"></Button>
+</RelativeLayout>
