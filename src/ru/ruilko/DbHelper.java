@@ -43,31 +43,60 @@ public class DbHelper extends SQLiteOpenHelper {
 	@Override
 	public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {}
 
-	public void atomicallySaveItem(Item item) {
-		Log.d(TAG, "Saving item to db: " + item.toString() + " - " + item.getNotes());
-		SQLiteDatabase db = getWritableDatabase();
-		db.beginTransaction();
+	public void atomicallyUpdateItem(Item item, LogItem logitem) {
+		Log.d(TAG, "Atomically updating item in db: " + item.toString());
+		begin();
 		try {
-			// save item
+			updateItem(item, logitem);
+			commit();
+		} finally {
+			end();
+		}		
+	}
+
+	private void updateOnlyLog(LogItem log, SQLiteDatabase db) {
+		ContentValues values = new ContentValues(3);
+		if( log.getUpdated()!=LogItem.CURRENT_TIMESTAMP ) {
+			// Update from server
+			values.put("updated", log.getUpdated());
+		} else {
+			// Locally modified
+			values.put("updated", System.currentTimeMillis()/1000);
+		}
+		values.put("uuid", log.getUuid());
+		values.put("status", log.getStatus().ordinal());
+		db.replace(LOGS_TABLE_NAME, null, values);
+	}
+
+	private void updateOnlyItem(Item item, SQLiteDatabase db, boolean shouldUpdate) {
+		if( shouldUpdate ) {
 			ContentValues values = new ContentValues(3);
 			values.put("uuid", item.getUuid());
 			values.put("title", item.getTitle());
 			values.put("notes", item.getNotes());
 			db.replace(ITEMS_TABLE_NAME, null, values);
-
-			// update log
-			values = new ContentValues(2);
-			values.put("uuid", item.getUuid());
-			values.put("status", LogItem.Status.UPDATED.ordinal());
-			db.replace(LOGS_TABLE_NAME, null, values);
-			
-			db.setTransactionSuccessful();
-		} finally {
-			db.endTransaction();
-		}		
+		}
+		else {
+			db.delete(ITEMS_TABLE_NAME, "uuid=?", new String[]{item.getUuid()});
+		}
+	}
+	
+	public void begin() {
+		SQLiteDatabase db = getWritableDatabase();
+		db.beginTransaction();
 	}
 
-	public Item readItem(String uuid) {
+	public void commit() {
+		SQLiteDatabase db = getWritableDatabase();
+		db.setTransactionSuccessful();
+	}
+
+	public void end() {
+		SQLiteDatabase db = getWritableDatabase();
+		db.endTransaction();
+	}
+
+	public Item readItem(String uuid) throws Exception {
 		SQLiteDatabase db = getWritableDatabase();
 		Item result = null;
 		
@@ -76,14 +105,9 @@ public class DbHelper extends SQLiteOpenHelper {
 		columns[0] = "title";
 		columns[1] = "notes";
 
-//		String selection = "uuid='?'";
-		String selection = "uuid='" + uuid + "'";
+		String selection = "uuid=?";
 
-		String[] selectionArgs = new String[1];
-		selectionArgs[0] = uuid;
-
-//		Cursor cursor = db.query(ITEMS_TABLE_NAME, columns, selection, selectionArgs, null, null, null);
-		Cursor cursor = db.query(ITEMS_TABLE_NAME, columns, selection, null, null, null, null);
+		Cursor cursor = db.query(ITEMS_TABLE_NAME, columns, selection, new String[]{uuid}, null, null, null);
 		if( cursor.moveToFirst() ) {
 			Log.d(TAG, "Columns - " + cursor.getColumnNames().toString());
 			result = new Item(uuid, cursor.getString(0), cursor.getString(1));
@@ -98,12 +122,27 @@ public class DbHelper extends SQLiteOpenHelper {
 	}
 
 	public boolean shouldUpdate(LogItem logItem) {
-		// TODO Auto-generated method stub
-		return false;
+		SQLiteDatabase db = getWritableDatabase();
+		
+		String[] columns = new String[1];
+		columns[0] = "uuid";
+
+		String selection = "uuid=? AND updated<=?";
+
+		Cursor cursor = db.query(LOGS_TABLE_NAME, columns, selection,
+				new String[]{logItem.getUuid(), Integer.toString(logItem.getUpdated())}, null, null, null);
+		if( cursor.moveToFirst() ) {
+			return false;
+		}
+		
+		return true;
 	}
 
-	public void updateItem(LogItem logItem, Item item) {
-		// TODO Auto-generated method stub
+	public void updateItem(Item item, LogItem logItem) {
+		Log.d(TAG, "Updating item in db: " + item.toString());
+		SQLiteDatabase db = getWritableDatabase();
+		updateOnlyItem(item, db, logItem.getStatus()==LogItem.Status.UPDATED);
+		updateOnlyLog(logItem, db);
 	}
 	
 	public void close() {

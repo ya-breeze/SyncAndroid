@@ -66,7 +66,7 @@ public class WriteActivity extends Activity implements OnClickListener {
 			Log.d(TAG, "Save record into DB");
 			item.setNotes(((TextView)(editText)).getText().toString());
 			try{
-				dbHelper.atomicallySaveItem(item);
+				dbHelper.atomicallyUpdateItem(item, new LogItem(item, LogItem.Status.UPDATED));
 			}catch(Exception e) {
 	        	Log.e(TAG, "Unable save item: " + e.getMessage() + e.toString() + e.fillInStackTrace().toString());
 			}

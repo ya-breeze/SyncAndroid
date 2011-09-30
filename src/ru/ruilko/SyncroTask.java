@@ -11,6 +11,8 @@ import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.JsonParser;
 import org.codehaus.jackson.map.ObjectMapper;
 
+import ru.ruilko.util.Utils;
+
 import android.os.AsyncTask;
 import android.util.Log;
 
@@ -23,8 +25,9 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 
 	@Override
 	protected Void doInBackground(DbHelper... dbHelpers) {
+		dbHelper  = dbHelpers[0];
+		dbHelper.begin();
 		try{
-			dbHelper  = dbHelpers[0];
 			// TODO Get last update time from saved place
 			// It's "updated" time of the most recent item from last syncronization
 			int lastUpdate = 0;
@@ -36,8 +39,13 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 			uploadUpdates(localItems);
 			// TODO Save current last updates
 			storeLastUpdate();
+			// TODO if last update time is stored NOT in db, this commit
+			// should be _before_ saving last update time
+			dbHelper.commit();
 		}catch (Exception e) {
-			Log.e(TAG, "Error while syncronizing: " + e.getMessage());
+			Log.e(TAG, "Error while syncronizing: " + Utils.getDescription(e));
+		} finally {
+			dbHelper.end();
 		}
 		
 		return null;
@@ -51,17 +59,17 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 		Log.d(TAG, "Uploading updates to server...");
 	}
 
-	private void fetchUpdates(int lastUpdate) throws IOException, ServerException {
+	private void fetchUpdates(int lastUpdate) throws Exception {
 		Log.d(TAG, "Fetching updates from server...");
 		JsonNode items = fetchJsonUpdates(lastUpdate);
 		for (JsonNode itemNode : items) {
 			Log.d(TAG, "Handle item: " + itemNode.toString());
 			LogItem logItem = new LogItem(itemNode);
 			if( dbHelper.shouldUpdate(logItem) ) {
-				Log.d(TAG, "Will update item: " + logItem.getUuid());
-				dbHelper.updateItem(logItem, new Item(itemNode));				
+				Log.d(TAG, "Will update item: " + logItem.getUuid() + ":" + logItem.getStatus());
+				dbHelper.updateItem(new Item(itemNode), logItem);				
 			} else {
-				Log.d(TAG, "Will NOT update item, it's too old: " + logItem.getUuid());
+				Log.d(TAG, "Will NOT update item, it's too old: " + logItem.getUuid() + ":" + logItem.getStatus());
 			}
 		}
 	}
