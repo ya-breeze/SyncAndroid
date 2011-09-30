@@ -2,10 +2,22 @@ package ru.ruilko;
 
 import java.util.UUID;
 
+import org.codehaus.jackson.JsonNode;
+
 public class Item {
 	private String uuid;
 	private String title;
 	private String notes;
+	public Item(JsonNode itemNode) {
+		setUuid(itemNode.get("uuid").getValueAsText());
+		setTitle(itemNode.get("title").getValueAsText());
+		setNotes(itemNode.get("notes").getValueAsText());
+	}
+	public Item(String uuid, String title, String notes) {
+		setUuid(uuid);
+		setTitle(title);
+		setNotes(notes);
+	}
 	public String getUuid() {
 		return uuid;
 	}

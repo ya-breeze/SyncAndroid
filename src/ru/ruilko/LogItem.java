@@ -1,5 +1,7 @@
 package ru.ruilko;
 
+import org.codehaus.jackson.JsonNode;
+
 public class LogItem {
 	public enum Status {
 		UPDATED,
@@ -9,6 +11,11 @@ public class LogItem {
 	private int updated;
 	private Status status;
 	
+	public LogItem(JsonNode itemNode) {
+		setUuid(itemNode.get("uuid").getValueAsText());
+		setUpdated(itemNode.get("updated").getValueAsInt(0));
+		setStatus(itemNode.get("status").getValueAsInt(0)==Status.UPDATED.ordinal() ? Status.UPDATED : Status.DELETED);
+	}
 	public String getUuid() {
 		return uuid;
 	}

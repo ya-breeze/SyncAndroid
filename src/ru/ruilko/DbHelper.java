@@ -1,5 +1,8 @@
 package ru.ruilko;
 
+import java.util.LinkedList;
+import java.util.List;
+
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
@@ -40,8 +43,9 @@ public class DbHelper extends SQLiteOpenHelper {
 	@Override
 	public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {}
 
-	public void saveItem(SQLiteDatabase db, Item item) {
+	public void atomicallySaveItem(Item item) {
 		Log.d(TAG, "Saving item to db: " + item.toString() + " - " + item.getNotes());
+		SQLiteDatabase db = getWritableDatabase();
 		db.beginTransaction();
 		try {
 			// save item
@@ -63,7 +67,8 @@ public class DbHelper extends SQLiteOpenHelper {
 		}		
 	}
 
-	public Item readItem(SQLiteDatabase db, String uuid) {
+	public Item readItem(String uuid) {
+		SQLiteDatabase db = getWritableDatabase();
 		Item result = null;
 		
 		Log.d(TAG, "Reading item from db: " + uuid);
@@ -81,12 +86,28 @@ public class DbHelper extends SQLiteOpenHelper {
 		Cursor cursor = db.query(ITEMS_TABLE_NAME, columns, selection, null, null, null, null);
 		if( cursor.moveToFirst() ) {
 			Log.d(TAG, "Columns - " + cursor.getColumnNames().toString());
-			result = new Item();
-			result.setUuid(uuid);
-			result.setTitle(cursor.getString(0));
-			result.setNotes(cursor.getString(1));
+			result = new Item(uuid, cursor.getString(0), cursor.getString(1));
 		}
 		
 		return result;
+	}
+
+	public List<String> getLocalUpdates(int lastUpdate) {
+		List<String> result = new LinkedList<String>();
+		return result;
+	}
+
+	public boolean shouldUpdate(LogItem logItem) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	public void updateItem(LogItem logItem, Item item) {
+		// TODO Auto-generated method stub
+	}
+	
+	public void close() {
+		SQLiteDatabase db = getWritableDatabase();
+		db.close();		
 	}
 }

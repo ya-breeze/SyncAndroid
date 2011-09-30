@@ -1,11 +1,9 @@
 package ru.ruilko;
 
 import java.util.Date;
-import java.util.UUID;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -19,7 +17,6 @@ public class WriteActivity extends Activity implements OnClickListener {
 	private Button btnCancel;
 	private Button btnSave;
 	private DbHelper dbHelper;
-	private SQLiteDatabase db;
 	private Item item;
 	private EditText editText;
 	private TextView viewDate;
@@ -37,22 +34,19 @@ public class WriteActivity extends Activity implements OnClickListener {
 	        btnSave.setOnClickListener(this);
 	        btnCancel.setOnClickListener(this);
 	        
-	        // TODO Get today record from DB and put it into edittext
+	        // Get today record from DB and put it into edittext
             dbHelper = new DbHelper(this);
-            db = dbHelper.getWritableDatabase();
 
             Date date = new Date();
             date.setHours(0);
             date.setMinutes(0);
             date.setSeconds(0);
             String uuid = String.format("%08d-%04d-%04d-0000-000000000000", date.getYear()+1900, date.getMonth(), date.getDay());
-            item = dbHelper.readItem(db, uuid);
+            item = dbHelper.readItem(uuid);
             if( item==null) {
             	Log.d(TAG, "There is no item in DB - will create new record");
-	            item = new Item();
-	            String dateStr = String.format("%d-%02d-%02d", date.getYear()+1900, date.getMonth(), date.getDay());
-	            item.setTitle(dateStr);
-	            item.setUuid( uuid );
+            	String dateStr = String.format("%d-%02d-%02d", date.getYear()+1900, date.getMonth(), date.getDay());
+	            item = new Item(uuid, dateStr, "");
             } else {
             	Log.d(TAG, "Fill record from DB");
             }
@@ -72,14 +66,19 @@ public class WriteActivity extends Activity implements OnClickListener {
 			Log.d(TAG, "Save record into DB");
 			item.setNotes(((TextView)(editText)).getText().toString());
 			try{
-				dbHelper.saveItem(db, item);
+				dbHelper.atomicallySaveItem(item);
 			}catch(Exception e) {
 	        	Log.e(TAG, "Unable save item: " + e.getMessage() + e.toString() + e.fillInStackTrace().toString());
 			}
 		}
 		setResult(Activity.RESULT_OK, resultIntent);
-		if( db!=null )
-			db.close();
 		finish();
 	}
+
+	@Override
+	protected void onPause() {
+		super.onPause();
+		dbHelper.close();
+	}
+	
 }

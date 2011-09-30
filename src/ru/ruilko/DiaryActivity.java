@@ -37,7 +37,8 @@ public class DiaryActivity extends Activity implements OnClickListener {
 			Intent intent = new Intent(this, WriteActivity.class);
 			startActivityForResult(intent, 0);
 		} else if( (Button)btn==btnSync) {
-			textStatus.setText("Sincing...");
+			textStatus.setText("Syncing...");
+			new SyncroTask().execute(dbHelper);
 		}
 	}
 }
