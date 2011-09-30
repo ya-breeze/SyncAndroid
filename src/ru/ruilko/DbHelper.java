@@ -109,33 +109,59 @@ public class DbHelper extends SQLiteOpenHelper {
 
 		Cursor cursor = db.query(ITEMS_TABLE_NAME, columns, selection, new String[]{uuid}, null, null, null);
 		if( cursor.moveToFirst() ) {
-			Log.d(TAG, "Columns - " + cursor.getColumnNames().toString());
 			result = new Item(uuid, cursor.getString(0), cursor.getString(1));
 		}
+		cursor.close();
 		
 		return result;
 	}
 
-	public List<String> getLocalUpdates(int lastUpdate) {
-		List<String> result = new LinkedList<String>();
+	/**
+	 * @return list of uuid of items, which were updated since lastUpdate
+	 * @throws Exception 
+	 */
+	public List<LogItem> getLocalUpdates(int lastUpdate) throws Exception {
+		List<LogItem> result = new LinkedList<LogItem>();
+
+		SQLiteDatabase db = getWritableDatabase();
+		
+		String[] columns = new String[]{"uuid", "status", "updated"};
+
+		String selection = "updated>=?";
+
+		Cursor cursor = db.query(LOGS_TABLE_NAME, columns, selection,
+				new String[]{Integer.toString(lastUpdate)}, null, null, null);
+		cursor.moveToFirst();
+        while (cursor.isAfterLast() == false) {
+        	LogItem logItem = new LogItem(cursor.getString(0),
+        			(cursor.getInt(1)==LogItem.Status.UPDATED.ordinal() ? LogItem.Status.UPDATED : LogItem.Status.DELETED),
+        			cursor.getInt(2));
+        	result.add(logItem);
+        	cursor.moveToNext();
+        }
+		cursor.close();
+
 		return result;
 	}
 
 	public boolean shouldUpdate(LogItem logItem) {
+		boolean result = true;
 		SQLiteDatabase db = getWritableDatabase();
 		
 		String[] columns = new String[1];
-		columns[0] = "uuid";
+		columns[0] = "updated";
 
-		String selection = "uuid=? AND updated<=?";
+		String selection = "uuid=? AND updated>=?";
 
 		Cursor cursor = db.query(LOGS_TABLE_NAME, columns, selection,
 				new String[]{logItem.getUuid(), Integer.toString(logItem.getUpdated())}, null, null, null);
 		if( cursor.moveToFirst() ) {
-			return false;
+			result = false;
+			Log.d(TAG, "There is log item: " + cursor.getInt(0) + ">=" + logItem.getUpdated());
 		}
+		cursor.close();
 		
-		return true;
+		return result;
 	}
 
 	public void updateItem(Item item, LogItem logItem) {
