@@ -6,11 +6,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 
-import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.JsonParser;
@@ -19,6 +17,7 @@ import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.ObjectNode;
 
 import ru.ruilko.util.Utils;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.util.Log;
 
@@ -31,27 +30,37 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 
 	private static final String FETCH = HOST + "/fetch.php";
 
+	private static final String LAST_UPDATE = "last_update";
+
 	private DbHelper dbHelper = null;
+
+	private SharedPreferences prefs;
+	
+	public SyncroTask(SharedPreferences prefs) {
+		super();
+		this.prefs = prefs;
+	}
 
 	@Override
 	protected Void doInBackground(DbHelper... dbHelpers) {
 		dbHelper = dbHelpers[0];
 		dbHelper.begin();
 		try {
-			// TODO Get last update time from saved place
+			// TODO Подумать про Last Update - сейчас какая-то глупость. Не будет работать
+			// для двух участников + сервер
+			// Get last update time from saved place
 			// It's "updated" time of the most recent item from last syncronization
-			int lastUpdate = 0;
+			int lastUpdate = getLastUpdate();
 			// Get list of locally modified items
 			List<LogItem> localItems = dbHelper.getLocalUpdates(lastUpdate);
 			// Download from server
-			fetchUpdates(lastUpdate);
-			// TODO Upload to server only items from list
+			int newLastUpdate = fetchUpdates(lastUpdate);
+			// Upload to server only items from list
 			uploadUpdates(localItems);
-			// TODO Save current last updates
-			storeLastUpdate();
-			// TODO if last update time is stored NOT in db, this commit
-			// should be _before_ saving last update time
 			dbHelper.commit();
+
+			// Save current last updates
+			storeLastUpdate(newLastUpdate);
 		} catch (Exception e) {
 			Log.e(TAG, "Error while syncronizing: " + Utils.getDescription(e));
 		} finally {
@@ -61,8 +70,15 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 		return null;
 	}
 
-	private void storeLastUpdate() {
+	private int getLastUpdate() {
+		return prefs.getInt(LAST_UPDATE, 0);
+	}
+
+	private void storeLastUpdate(int lastUpdate) {
 		Log.d(TAG, "Storing last update time...");
+		SharedPreferences.Editor editor = prefs.edit();
+		editor.putInt(LAST_UPDATE, lastUpdate);
+		editor.commit();
 	}
 
 	private void uploadUpdates(List<LogItem> localItems) throws Exception {
@@ -114,8 +130,9 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 		return rootNode;
 	}
 
-	private void fetchUpdates(int lastUpdate) throws Exception {
+	private int fetchUpdates(int lastUpdate) throws Exception {
 		Log.d(TAG, "Fetching updates from server...");
+		int maxLastUpdate = lastUpdate;
 		JsonNode items = fetchJsonUpdates(lastUpdate);
 		for (JsonNode itemNode : items) {
 			Log.d(TAG, "Handle item: " + itemNode.toString());
@@ -127,7 +144,11 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 				Log.d(TAG, "Will NOT update item, it's too old: " + logItem.getUuid() + ":"
 						+ logItem.getStatus());
 			}
+			if( logItem.getUpdated()>maxLastUpdate )
+				maxLastUpdate = logItem.getUpdated();
 		}
+		
+		return maxLastUpdate;
 	}
 
 	private JsonNode fetchJsonUpdates(int lastUpdate) throws IOException, ServerException {

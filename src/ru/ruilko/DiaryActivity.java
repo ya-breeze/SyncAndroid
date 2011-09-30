@@ -2,6 +2,7 @@ package ru.ruilko;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -38,7 +39,8 @@ public class DiaryActivity extends Activity implements OnClickListener {
 			startActivityForResult(intent, 0);
 		} else if( (Button)btn==btnSync) {
 			textStatus.setText("Syncing...");
-			new SyncroTask().execute(dbHelper);
+			SharedPreferences prefs = getSharedPreferences("DIARY", MODE_PRIVATE);
+			new SyncroTask(prefs).execute(dbHelper);
 		}
 	}
 }
