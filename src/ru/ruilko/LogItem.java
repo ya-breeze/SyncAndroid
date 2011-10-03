@@ -11,22 +11,26 @@ public class LogItem {
 	private String uuid;
 	private int updated;
 	private Status status;
+	private int localUpdated;
 	
 	public LogItem(JsonNode itemNode) throws Exception {
 		setUuid(itemNode.path("uuid").getValueAsText());
 		setStatus(itemNode.path("status").getValueAsText().toLowerCase()
 				.equals("updated") ? Status.UPDATED : Status.DELETED);
 		setUpdated(itemNode.path("updated").getValueAsInt(CURRENT_TIMESTAMP));
+		setLocalUpdated(itemNode.path("localUpdated").getValueAsInt(CURRENT_TIMESTAMP));
 	}
-	public LogItem(String uuid, Status status, int updated) throws Exception {
+	public LogItem(String uuid, Status status, int updated, int localUpdated) throws Exception {
 		setUuid(uuid);
 		setStatus(status);
 		setUpdated(updated);
+		setLocalUpdated(localUpdated);
 	}
 	public LogItem(Item item, Status status) throws Exception {
 		setUuid(item.getUuid());
 		setStatus(status);
 		setUpdated(CURRENT_TIMESTAMP);
+		setLocalUpdated(CURRENT_TIMESTAMP);
 	}
 	
 	public String getUuid() {
@@ -48,5 +52,11 @@ public class LogItem {
 	}
 	public void setStatus(Status status) {
 		this.status = status;
+	}
+	public int getLocalUpdated() {
+		return localUpdated;
+	}
+	public void setLocalUpdated(int localUpdated) {
+		this.localUpdated = localUpdated;
 	}
 }

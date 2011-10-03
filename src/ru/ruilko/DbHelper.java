@@ -17,7 +17,7 @@ public class DbHelper extends SQLiteOpenHelper {
 	private static final String LOGS_TABLE_NAME = "Logs";
 
 	private static final String LOGS_TABLE_CREATE = "CREATE TABLE " + LOGS_TABLE_NAME
-			+ "(uuid TEXT PRIMARY KEY, updated INTEGER DEFAULT CURRENT_TIMESTAMP, status INTEGER);";
+			+ "(uuid TEXT PRIMARY KEY, updated INTEGER DEFAULT CURRENT_TIMESTAMP, status INTEGER, localUpdated INTEGER DEFAULT CURRENT_TIMESTAMP);";
 
 	private static final String LOGS_INDEX_CREATE = "CREATE INDEX LogsIdx ON " + LOGS_TABLE_NAME
 			+ "(updated);";
@@ -55,13 +55,16 @@ public class DbHelper extends SQLiteOpenHelper {
 	}
 
 	private void updateOnlyLog(LogItem log, SQLiteDatabase db) {
-		ContentValues values = new ContentValues(3);
+		ContentValues values = new ContentValues(4);
 		if( log.getUpdated()!=LogItem.CURRENT_TIMESTAMP ) {
 			// Update from server
 			values.put("updated", log.getUpdated());
+			values.put("localUpdated", log.getLocalUpdated());
 		} else {
 			// Locally modified
-			values.put("updated", System.currentTimeMillis()/1000);
+			int now = (int) (System.currentTimeMillis()/1000);
+			values.put("updated", now);
+			values.put("localUpdated", now);
 		}
 		values.put("uuid", log.getUuid());
 		values.put("status", log.getStatus().ordinal());
@@ -125,9 +128,9 @@ public class DbHelper extends SQLiteOpenHelper {
 
 		SQLiteDatabase db = getWritableDatabase();
 		
-		String[] columns = new String[]{"uuid", "status", "updated"};
+		String[] columns = new String[]{"uuid", "status", "updated", "localUpdated"};
 
-		String selection = "updated>=?";
+		String selection = "localUpdated>=?";
 
 		Cursor cursor = db.query(LOGS_TABLE_NAME, columns, selection,
 				new String[]{Integer.toString(lastUpdate)}, null, null, null);
@@ -135,7 +138,7 @@ public class DbHelper extends SQLiteOpenHelper {
         while (cursor.isAfterLast() == false) {
         	LogItem logItem = new LogItem(cursor.getString(0),
         			(cursor.getInt(1)==LogItem.Status.UPDATED.ordinal() ? LogItem.Status.UPDATED : LogItem.Status.DELETED),
-        			cursor.getInt(2));
+        			cursor.getInt(2), cursor.getInt(3));
         	result.add(logItem);
         	cursor.moveToNext();
         }

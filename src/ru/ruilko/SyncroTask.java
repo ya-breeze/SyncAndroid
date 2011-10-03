@@ -30,7 +30,9 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 
 	private static final String FETCH = HOST + "/fetch.php";
 
-	private static final String LAST_UPDATE = "last_update";
+	private static final String LAST_SERVER_UPDATE = "last_server_update";
+
+	private static final String LAST_LOCAL_UPDATE = "last_local_update";
 
 	private DbHelper dbHelper = null;
 
@@ -46,21 +48,20 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 		dbHelper = dbHelpers[0];
 		dbHelper.begin();
 		try {
-			// TODO Подумать про Last Update - сейчас какая-то глупость. Не будет работать
-			// для двух участников + сервер
 			// Get last update time from saved place
-			// It's "updated" time of the most recent item from last syncronization
-			int lastUpdate = getLastUpdate();
+			int lastServerUpdate = getLastServerUpdate();
+			int lastLocalUpdate  = getLastLocalUpdate();
 			// Get list of locally modified items
-			List<LogItem> localItems = dbHelper.getLocalUpdates(lastUpdate);
+			List<LogItem> localItems = dbHelper.getLocalUpdates(lastLocalUpdate);
 			// Download from server
-			int newLastUpdate = fetchUpdates(lastUpdate);
+			lastServerUpdate = fetchUpdates(lastServerUpdate);
 			// Upload to server only items from list
-			uploadUpdates(localItems);
+			lastLocalUpdate = uploadUpdates(lastLocalUpdate, localItems);
 			dbHelper.commit();
 
 			// Save current last updates
-			storeLastUpdate(newLastUpdate);
+			storeLastServerUpdate(lastServerUpdate);
+			storeLastLocalUpdate(lastLocalUpdate);
 		} catch (Exception e) {
 			Log.e(TAG, "Error while syncronizing: " + Utils.getDescription(e));
 		} finally {
@@ -70,21 +71,39 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 		return null;
 	}
 
-	private int getLastUpdate() {
-		return prefs.getInt(LAST_UPDATE, 0);
+	private int getLastServerUpdate() {
+		return prefs.getInt(LAST_SERVER_UPDATE, 0);
+	}
+	private int getLastLocalUpdate() {
+		return prefs.getInt(LAST_LOCAL_UPDATE, 0);
 	}
 
-	private void storeLastUpdate(int lastUpdate) {
-		Log.d(TAG, "Storing last update time...");
+	private void storeLastServerUpdate(int lastUpdate) {
+		Log.d(TAG, "Storing last server update time...");
 		SharedPreferences.Editor editor = prefs.edit();
-		editor.putInt(LAST_UPDATE, lastUpdate);
+		editor.putInt(LAST_SERVER_UPDATE, lastUpdate);
+		editor.commit();
+	}
+	private void storeLastLocalUpdate(int lastUpdate) {
+		Log.d(TAG, "Storing last local update time...");
+		SharedPreferences.Editor editor = prefs.edit();
+		editor.putInt(LAST_LOCAL_UPDATE, lastUpdate);
 		editor.commit();
 	}
 
-	private void uploadUpdates(List<LogItem> localItems) throws Exception {
+	private int uploadUpdates(int lastUpdate, List<LogItem> localItems) throws Exception {
 		Log.d(TAG, "Uploading updates to server...");
 		JsonNode items = prepareJsonUpdates(localItems);
 		uploadJsonUpdates(items);
+
+		// Find latest one - not optimal, just my laziness )
+		int maxLocalUpdate = lastUpdate;
+		for (LogItem logItem : localItems) {
+			if( logItem.getLocalUpdated()>maxLocalUpdate )
+				maxLocalUpdate = logItem.getLocalUpdated();
+		}
+		
+		return maxLocalUpdate;
 	}
 
 	private void uploadJsonUpdates(JsonNode items) throws Exception {
