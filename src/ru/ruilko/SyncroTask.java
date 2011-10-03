@@ -24,11 +24,13 @@ import android.util.Log;
 public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 	private static final String TAG = "SyncroTask";
 
-	private static final String HOST = "http://10.0.2.2/sync";
+	private static final String SERVER_ADDRESS_PREFIX = "http://";
+	
+	private static final String SERVER_ADDRESS_POSTFIX = "/sync";
 
-	private static final String UPLOAD = HOST + "/upload.php";
+	private static final String UPLOAD = "/upload.php";
 
-	private static final String FETCH = HOST + "/fetch.php";
+	private static final String FETCH = "/fetch.php";
 
 	private static final String LAST_SERVER_UPDATE = "last_server_update";
 
@@ -37,10 +39,13 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 	private DbHelper dbHelper = null;
 
 	private SharedPreferences prefs;
-	
-	public SyncroTask(SharedPreferences prefs) {
+
+	private String server;
+
+	public SyncroTask(String server, SharedPreferences prefs) {
 		super();
 		this.prefs = prefs;
+		this.server = SERVER_ADDRESS_PREFIX + server + SERVER_ADDRESS_POSTFIX;
 	}
 
 	@Override
@@ -107,7 +112,7 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 	}
 
 	private void uploadJsonUpdates(JsonNode items) throws Exception {
-		URL url = new URL(UPLOAD);
+		URL url = new URL(this.server + UPLOAD);
 		HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
 		try {
 			urlConnection.setDoOutput(true);
@@ -171,7 +176,7 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 	}
 
 	private JsonNode fetchJsonUpdates(int lastUpdate) throws IOException, ServerException {
-		URL url = new URL(FETCH + "?lastUpdate=" + lastUpdate);
+		URL url = new URL(this.server + FETCH + "?lastUpdate=" + lastUpdate);
 		HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
 		JsonNode items = null;
 		try {
