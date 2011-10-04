@@ -18,6 +18,7 @@ import android.widget.TextView;
 
 public class DiaryActivity extends Activity implements OnClickListener {
 	public static final String SERVER_ADDRESS = "server_address";
+	public static final String CFG_PASSWORD = "password";
 	private static final String DEFAULT_SERVER_HOST = "10.0.2.2";
 	private static final String TAG = "DiaryActivity";
 
@@ -51,7 +52,7 @@ public class DiaryActivity extends Activity implements OnClickListener {
 		} else if( (Button)btn==btnSync) {
 			textStatus.setText("Syncing...");
 			SharedPreferences prefs = getSharedPreferences("DIARY", MODE_PRIVATE);
-			new SyncroTask(getServer(), prefs).execute(dbHelper);
+			new SyncroTask(getServer(), prefs, prefs.getString(CFG_PASSWORD, CFG_PASSWORD)).execute(dbHelper);
 		}
 	}
 

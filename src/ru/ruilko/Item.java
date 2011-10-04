@@ -9,15 +9,13 @@ public class Item {
 	private String title;
 	private String notes;
 	
-	public Item(JsonNode itemNode) throws Exception {
-		setUuid(itemNode.path("uuid").getValueAsText());
-		setTitle(itemNode.path("title").getValueAsText());
-		setNotes(itemNode.path("notes").getValueAsText());
-	}
 	public Item(String uuid, String title, String notes) throws Exception {
 		setUuid(uuid);
 		setTitle(title);
 		setNotes(notes);
+	}
+	public Item() {
+		uuid = title = notes = "";
 	}
 	public String getUuid() {
 		return uuid;

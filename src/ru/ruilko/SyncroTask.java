@@ -12,6 +12,7 @@ import java.util.List;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.JsonParser;
+import org.codehaus.jackson.JsonProcessingException;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.ObjectNode;
@@ -41,10 +42,13 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 	private SharedPreferences prefs;
 
 	private String server;
+	
+	private String password;
 
-	public SyncroTask(String server, SharedPreferences prefs) {
+	public SyncroTask(String server, SharedPreferences prefs, String password) {
 		super();
 		this.prefs = prefs;
+		this.password = password;
 		this.server = SERVER_ADDRESS_PREFIX + server + SERVER_ADDRESS_POSTFIX;
 	}
 
@@ -136,22 +140,62 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 		ArrayNode itemsNode = mapper.createArrayNode();
 		rootNode.put("items", itemsNode);
 		for (LogItem logItem : localItems) {
-			Item item = dbHelper.readItem(logItem.getUuid());
+			Item item = logItem.getStatus()==LogItem.Status.DELETED ? null : dbHelper.readItem(logItem.getUuid());
 
-			ObjectNode itemNode = mapper.createObjectNode();
+			ObjectNode itemNode = encodeItem(mapper, logItem, item);
 			itemsNode.add(itemNode);
-			itemNode.put("uuid", logItem.getUuid());
-			itemNode.put("status", logItem.getStatus().toString());
-			itemNode.put("updated", logItem.getUpdated());
-			// Will be null for deleted items
-			if (item != null) {
-				itemNode.put("title", item.getTitle());
-				itemNode.put("notes", item.getNotes());
-			}
 		}
 		//		Log.d(TAG, "!!! Generate:" + rootNode.toString());
 
 		return rootNode;
+	}
+
+	private ObjectNode encodeItem(ObjectMapper mapper, LogItem logItem, Item item) throws Exception {
+		Log.d(TAG, "Will encode " + item);
+		ObjectNode itemNode = mapper.createObjectNode();
+		itemNode.put("uuid", logItem.getUuid());
+		itemNode.put("status", logItem.getStatus().toString());
+		itemNode.put("updated", logItem.getUpdated());
+		// Will be null for deleted items
+		if (item != null) {
+			ObjectNode itemClearNode = mapper.createObjectNode();			
+			itemClearNode.put("title", item.getTitle());
+			itemClearNode.put("notes", item.getNotes());
+
+			OutputStream output = new OutputStream()
+		    {
+		        private StringBuilder string = new StringBuilder();
+		        @Override
+		        public void write(int b) throws IOException {
+		            this.string.append((char) b );
+		        }
+
+		        public String toString(){
+		            return this.string.toString();
+		        }
+		    };
+		    JsonGenerator writer = mapper.getJsonFactory().createJsonGenerator(output);
+			writer.writeTree(itemClearNode);
+			
+			itemNode.put("body", SimpleCrypto.encrypt(password, output.toString()));
+		}
+		Log.d(TAG, "Encoded to " + itemNode.toString());
+		return itemNode;
+	}
+	
+	private Item decodeItem(String uuid, String body) throws Exception {
+		Log.d(TAG, "Get body to decode " + body);
+		String realBody = SimpleCrypto.decrypt(password, body);
+		ObjectMapper mapper = new ObjectMapper();
+		JsonNode rootNode = mapper.readTree(realBody);
+		Log.d(TAG, "Decoded to " + rootNode.toString());		
+		
+		Item result = new Item();
+		result.setUuid(uuid);
+		result.setTitle(rootNode.path("title").getValueAsText());
+		result.setNotes(rootNode.path("notes").getValueAsText());
+
+		return result;
 	}
 
 	private int fetchUpdates(int lastUpdate) throws Exception {
@@ -163,7 +207,7 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 			LogItem logItem = new LogItem(itemNode);
 			if (dbHelper.shouldUpdate(logItem)) {
 				Log.d(TAG, "Will update item: " + logItem.getUuid() + ":" + logItem.getStatus());
-				dbHelper.updateItem(new Item(itemNode), logItem);
+				dbHelper.updateItem( decodeItem(logItem.getUuid(), itemNode.path("body").getValueAsText()), logItem );
 			} else {
 				Log.d(TAG, "Will NOT update item, it's too old: " + logItem.getUuid() + ":"
 						+ logItem.getStatus());
