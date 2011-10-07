@@ -18,11 +18,13 @@ import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.ObjectNode;
 
 import ru.ruilko.util.Utils;
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.util.Log;
+import android.widget.Toast;
 
-public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
+public class SyncroTask extends AsyncTask<DbHelper, Integer, String> {
 	private static final String TAG = "SyncroTask";
 
 	private static final String SERVER_ADDRESS_PREFIX = "http://";
@@ -45,17 +47,35 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 	
 	private String password;
 
-	public SyncroTask(String server, SharedPreferences prefs, String password) {
+	private Context context;
+
+	public SyncroTask(Context context, String server, SharedPreferences prefs, String password) {
 		super();
 		this.prefs = prefs;
 		this.password = password;
+		this.context = context;
 		this.server = SERVER_ADDRESS_PREFIX + server + SERVER_ADDRESS_POSTFIX;
 	}
 
 	@Override
-	protected Void doInBackground(DbHelper... dbHelpers) {
+	protected void onPostExecute(String result) {
+		super.onPostExecute(result);
+		if( result==null )
+			result = "Sync successed";
+		Toast.makeText(context, result, Toast.LENGTH_SHORT).show();
+	}
+
+	@Override
+	protected void onPreExecute() {
+		super.onPreExecute();
+		Toast.makeText(context, "Starting sync...", Toast.LENGTH_SHORT).show();
+	}
+
+	@Override
+	protected String doInBackground(DbHelper... dbHelpers) {
 		dbHelper = dbHelpers[0];
 		dbHelper.begin();
+		String result = null;
 		try {
 			// Get last update time from saved place
 			int lastServerUpdate = getLastServerUpdate();
@@ -72,12 +92,13 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, Void> {
 			storeLastServerUpdate(lastServerUpdate);
 			storeLastLocalUpdate(lastLocalUpdate);
 		} catch (Exception e) {
+			result  = "Error while syncronizing: " + e.getMessage();
 			Log.e(TAG, "Error while syncronizing: " + Utils.getDescription(e));
 		} finally {
 			dbHelper.end();
 		}
 
-		return null;
+		return result;
 	}
 
 	private int getLastServerUpdate() {

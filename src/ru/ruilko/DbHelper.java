@@ -111,10 +111,13 @@ public class DbHelper extends SQLiteOpenHelper {
 		String selection = "uuid=?";
 
 		Cursor cursor = db.query(ITEMS_TABLE_NAME, columns, selection, new String[]{uuid}, null, null, null);
-		if( cursor.moveToFirst() ) {
-			result = new Item(uuid, cursor.getString(0), cursor.getString(1));
+		try {
+			if( cursor.moveToFirst() ) {
+				result = new Item(uuid, cursor.getString(0), cursor.getString(1));
+			}
+		} finally {
+			cursor.close();
 		}
-		cursor.close();
 		
 		return result;
 	}
@@ -135,14 +138,17 @@ public class DbHelper extends SQLiteOpenHelper {
 		Cursor cursor = db.query(LOGS_TABLE_NAME, columns, selection,
 				new String[]{Integer.toString(lastUpdate)}, null, null, null);
 		cursor.moveToFirst();
-        while (cursor.isAfterLast() == false) {
-        	LogItem logItem = new LogItem(cursor.getString(0),
-        			(cursor.getInt(1)==LogItem.Status.UPDATED.ordinal() ? LogItem.Status.UPDATED : LogItem.Status.DELETED),
-        			cursor.getInt(2), cursor.getInt(3));
-        	result.add(logItem);
-        	cursor.moveToNext();
-        }
-		cursor.close();
+		try{
+	        while (cursor.isAfterLast() == false) {
+	        	LogItem logItem = new LogItem(cursor.getString(0),
+	        			(cursor.getInt(1)==LogItem.Status.UPDATED.ordinal() ? LogItem.Status.UPDATED : LogItem.Status.DELETED),
+	        			cursor.getInt(2), cursor.getInt(3));
+	        	result.add(logItem);
+	        	cursor.moveToNext();
+	        }
+		} finally {
+			cursor.close();
+		}
 
 		return result;
 	}
