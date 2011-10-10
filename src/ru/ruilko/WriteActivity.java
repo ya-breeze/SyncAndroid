@@ -1,5 +1,6 @@
 package ru.ruilko;
 
+import java.util.Calendar;
 import java.util.Date;
 
 import android.app.Activity;
@@ -37,15 +38,17 @@ public class WriteActivity extends Activity implements OnClickListener {
 	        // Get today record from DB and put it into edittext
             dbHelper = new DbHelper(this);
 
-            Date date = new Date();
-            date.setHours(0);
-            date.setMinutes(0);
-            date.setSeconds(0);
-            String uuid = String.format("%08d-%04d-%04d-0000-000000000000", date.getYear()+1900, date.getMonth(), date.getDay());
+            Calendar date = Calendar.getInstance();
+            date.clear(Calendar.HOUR);
+            date.clear(Calendar.MINUTE);
+            date.clear(Calendar.SECOND);
+            String uuid = String.format("%08d-%04d-%04d-0000-000000000000",
+            		date.get(Calendar.YEAR), date.get(Calendar.MONTH)+1, date.get(Calendar.DAY_OF_MONTH));
             item = dbHelper.readItem(uuid);
             if( item==null) {
             	Log.d(TAG, "There is no item in DB - will create new record");
-            	String dateStr = String.format("%d-%02d-%02d", date.getYear()+1900, date.getMonth(), date.getDay());
+            	String dateStr = String.format("%04d-%02d-%02d",
+            			date.get(Calendar.YEAR), date.get(Calendar.MONTH)+1, date.get(Calendar.DAY_OF_MONTH));
 	            item = new Item(uuid, dateStr, "");
             } else {
             	Log.d(TAG, "Fill record from DB");

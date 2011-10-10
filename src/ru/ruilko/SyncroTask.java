@@ -12,7 +12,6 @@ import java.util.List;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonProcessingException;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.ObjectNode;
@@ -24,7 +23,7 @@ import android.os.AsyncTask;
 import android.util.Log;
 import android.widget.Toast;
 
-public class SyncroTask extends AsyncTask<DbHelper, Integer, String> {
+public class SyncroTask extends AsyncTask<DbHelper, String, String> {
 	private static final String TAG = "SyncroTask";
 
 	private static final String SERVER_ADDRESS_PREFIX = "http://";
@@ -70,6 +69,12 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, String> {
 		super.onPreExecute();
 		Toast.makeText(context, "Starting sync...", Toast.LENGTH_SHORT).show();
 	}
+	
+	@Override
+	protected void onProgressUpdate(String... values) {
+		super.onProgressUpdate(values);
+		Toast.makeText(context, values[0], Toast.LENGTH_SHORT).show();
+	}
 
 	@Override
 	protected String doInBackground(DbHelper... dbHelpers) {
@@ -81,10 +86,13 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, String> {
 			int lastServerUpdate = getLastServerUpdate();
 			int lastLocalUpdate  = getLastLocalUpdate();
 			// Get list of locally modified items
+			publishProgress(new String[]{"Getting local updates..."});
 			List<LogItem> localItems = dbHelper.getLocalUpdates(lastLocalUpdate);
 			// Download from server
+			publishProgress(new String[]{"Fetching updates from server..."});
 			lastServerUpdate = fetchUpdates(lastServerUpdate);
 			// Upload to server only items from list
+			publishProgress(new String[]{"Upload updates to server..."});
 			lastLocalUpdate = uploadUpdates(lastLocalUpdate, localItems);
 			dbHelper.commit();
 
@@ -206,7 +214,12 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, String> {
 	
 	private Item decodeItem(String uuid, String body) throws Exception {
 		Log.d(TAG, "Get body to decode " + body);
-		String realBody = SimpleCrypto.decrypt(password, body);
+		String realBody = null;
+		try {
+			SimpleCrypto.decrypt(password, body);
+		} catch (Exception e) {
+			throw new ServerException("Looks like password is incorrect");
+		}
 		ObjectMapper mapper = new ObjectMapper();
 		JsonNode rootNode = mapper.readTree(realBody);
 		Log.d(TAG, "Decoded to " + rootNode.toString());		
@@ -223,6 +236,7 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, String> {
 		Log.d(TAG, "Fetching updates from server...");
 		int maxLastUpdate = lastUpdate;
 		JsonNode items = fetchJsonUpdates(lastUpdate);
+		publishProgress(new String[]{"Parsing updates from server..."});
 		for (JsonNode itemNode : items) {
 			Log.d(TAG, "Handle item: " + itemNode.toString());
 			LogItem logItem = new LogItem(itemNode);
@@ -242,12 +256,14 @@ public class SyncroTask extends AsyncTask<DbHelper, Integer, String> {
 
 	private JsonNode fetchJsonUpdates(int lastUpdate) throws IOException, ServerException {
 		URL url = new URL(this.server + FETCH + "?lastUpdate=" + lastUpdate);
+		publishProgress(new String[]{"Connecting to server..."});
 		HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
 		JsonNode items = null;
 		try {
 			if (urlConnection.getResponseCode() / 100 != 2) throw new ServerException(
 					"Error while reading server response: " + urlConnection.getResponseMessage());
 
+			publishProgress(new String[]{"Reading updates from server..."});
 			InputStream in = new BufferedInputStream(urlConnection.getInputStream());
 			ObjectMapper mapper = new ObjectMapper();
 			JsonParser jp = mapper.getJsonFactory().createJsonParser(in);
