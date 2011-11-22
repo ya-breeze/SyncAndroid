@@ -184,4 +184,17 @@ public class DbHelper extends SQLiteOpenHelper {
 		SQLiteDatabase db = getWritableDatabase();
 		db.close();		
 	}
+	
+	/**
+	 * For password update
+	 */
+	public void updateAll() {
+		Log.d(TAG, "Updating all items in db");
+		SQLiteDatabase db = getWritableDatabase();
+		ContentValues values = new ContentValues(2);
+		int now = (int) (System.currentTimeMillis()/1000);
+		values.put("updated", now);
+		values.put("localUpdated", now);
+		db.update(LOGS_TABLE_NAME, values, null, null);
+	}
 }

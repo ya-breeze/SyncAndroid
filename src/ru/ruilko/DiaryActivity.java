@@ -1,5 +1,6 @@
 package ru.ruilko;
 
+import ru.ruilko.util.Utils;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
@@ -16,6 +17,7 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class DiaryActivity extends Activity implements OnClickListener {
 	public static final String SERVER_ADDRESS = "server_address";
@@ -44,6 +46,11 @@ public class DiaryActivity extends Activity implements OnClickListener {
         btnSync.setOnClickListener(this);
         
         dbHelper = new DbHelper(this);
+        
+        // If no password - ask for it
+        if( getPassword().length()==0 ) {
+        	showMenuPassword();
+        }
     }
 
 	@Override
@@ -53,15 +60,20 @@ public class DiaryActivity extends Activity implements OnClickListener {
 			Intent intent = new Intent(this, WriteActivity.class);
 			startActivityForResult(intent, 0);
 		} else if( (Button)btn==btnSync) {
-			textStatus.setText("Syncing...");
-			SharedPreferences prefs = getSharedPreferences("DIARY", MODE_PRIVATE);
-			new SyncroTask(this, getServer(), prefs, getPassword()).execute(dbHelper);
+	        // If no password - reject sync
+	        if( getPassword().length()==0 ) {
+	        	Toast.makeText(this, "You should specify password", Toast.LENGTH_LONG);
+	        } else {
+				textStatus.setText("Syncing...");
+				SharedPreferences prefs = getSharedPreferences("DIARY", MODE_PRIVATE);
+				new SyncroTask(this, getServer(), prefs, getPassword()).execute(dbHelper);
+	        }
 		}
 	}
 
 	private String getPassword() {
 		SharedPreferences prefs = getSharedPreferences("DIARY", MODE_PRIVATE);
-		return prefs.getString(CFG_PASSWORD, CFG_PASSWORD);
+		return prefs.getString(CFG_PASSWORD, "");
 	}
 
 	@Override
@@ -113,7 +125,14 @@ public class DiaryActivity extends Activity implements OnClickListener {
 		SharedPreferences prefs = getSharedPreferences("DIARY", MODE_PRIVATE);
 		SharedPreferences.Editor editor = prefs.edit();
 		editor.putString(CFG_PASSWORD, value);
-		editor.commit();
+
+		try {
+			dbHelper.updateAll();
+			editor.commit();
+		} catch (Exception e) {
+			Log.e(TAG, "Error while set password: " + Utils.getDescription(e));
+        	Toast.makeText(this, "Unable update password", Toast.LENGTH_LONG);
+		}
 	}
 
 	private boolean showMenuServer() {

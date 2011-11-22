@@ -2,8 +2,6 @@ package ru.ruilko;
 
 import java.util.UUID;
 
-import org.codehaus.jackson.JsonNode;
-
 public class Item {
 	private String uuid;
 	private String title;
